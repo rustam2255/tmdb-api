@@ -1,4 +1,4 @@
-import React from 'react'
+import  { memo, useEffect, useState } from 'react'
 import { Modal } from 'react-responsive-modal'
 import 'react-responsive-modal/styles.css'
 import MovieService from '../../services/movie-service'
@@ -8,78 +8,105 @@ import RowMoviesItem from '../row-movies-item/row-movies-item'
 import Spinner from '../spinner/spinner'
 import "./row-movies.scss"
 
-class RowMovies extends React.Component {
-	state = {
-		loading: true,
-		error: false,
-		open: false,
-		movies: [],
-		movieId: null,
-		page: 1,
-		newItemLoading: false
-	}
-
-	movieService = new MovieService()
-
-	componentDidMount() {
-		this.getTrendingMovies()
-	}
-
-	onClose = () => this.setState({open: false})
-
-	onOpen = (id) => this.setState({open: true, movieId: id})
-
-	getTrendingMovies = (page) => {
-		
-		this.movieService.getTrandingMovies(page)
-			.then(res => this.setState(({movies}) => ({movies: [...movies, ...res]})))
-			.catch(() => this.setState({error: true}))
-			.finally(() => this.setState({loading: false, newItemLoading: false}))
-	}
-
-	getMoreMovies = () => {
-		this.setState(({page}) => ({page: page+1, newItemLoading: true}))
-		this.getTrendingMovies(this.state.page)
-	}
-
-	render() {
-		const {open, movies, movieId, error, loading, newItemLoading} = this.state
-
-		const errorContent = error ? <Error /> : null
-		const loadingContent = loading ? <Spinner /> : null
-		const content = !(error || loading) ? <Content movies={movies} onOpen={this.onOpen} /> : null
-
-		return (
-			<div className='rowmovies'>
-				<div className='rowmovies__top'>
-					<div className='rowmovies__top-title'>
-						<img src='/tranding.svg' alt='' />
-						<h1>Trending</h1>
-					</div>
-					<div className='hr' />
-					<a href="#">See more</a>
-				</div>
-				{errorContent}
-				{loadingContent}
-				{content}
-
-				<div className='rowmovies__loadmore'>
-					<button 
-						className='btn btn-secondary' 
-						onClick={this.getMoreMovies}
-						disabled={newItemLoading}
-					>
-						Load More
-					</button>
-				</div>
-	
-				<Modal open={open} onClose={this.onClose}>
-					<MovieInfo movieId={movieId} />
-				</Modal>
-			</div>
-		)
-	}
+function arePropsEqual(prevProps, nextProps){
+	return prevProps.page === nextProps.page
 }
+
+const RowMovies = memo(function RowMoives(props) {
+	const [loading, setLoading] = useState(true)
+	const [error, setError] = useState(false)
+	const [open, setOpen] = useState(false)
+	const [movies, setMovies] = useState([])
+	const [movieId, setMovieId] = useState(null)
+	const [page, setPage] = useState(1)
+	const [newItemLoading, setNewItemLoading] = useState(false)
+	const [isFetching, setIsFetching] = useState(false) // Qayta so'rov jo'natilishini oldini olish uchun
+
+	const movieService = new MovieService()
+
+	useEffect(() => {
+			// Faqat bir marta sahifa yuklanganda ishlaydi
+			getTrendingMovies(page)
+	}, [])
+
+	const onClose = () => setOpen(false)
+
+	const onOpen = (id) => {
+			setOpen(true)
+			setMovieId(id)
+	}
+
+	const getTrendingMovies = async (currentPage) => {
+			try {
+					setLoading(true)
+					const res = await movieService.getTrandingMovies(currentPage)
+					setMovies(res)
+			} catch  {
+					setError(true)
+			} finally {
+					setLoading(false)
+			}
+	}
+
+	const getMoreMovies = async () => {
+			// Agar allaqachon yuklanayotgan bo'lsa, qayta so'rov jo'natilmasin
+			if (isFetching) return
+
+			setIsFetching(true)  // So'rov ketayotganini belgilang
+			setNewItemLoading(true)
+
+			try {
+					const nextPage = page + 1 // Keyingi sahifani olamiz
+					const res = await movieService.getTrandingMovies(nextPage)
+
+					// Yangi kelgan filmlarni filterlab qo'shamiz
+					const newMovies = res.filter(newMovie =>
+							!movies.some(oldMovie => oldMovie.id === newMovie.id)
+					)
+					setMovies(prevMovies => [...prevMovies, ...newMovies])
+					setPage(nextPage) // Sahifani oshiramiz
+			} catch {
+					setError(true)
+			} finally {
+					setNewItemLoading(false)
+					setIsFetching(false) // So'rov tugagach belgini o'chiramiz
+			}
+	}
+
+	const errorContent = error ? <Error /> : null
+	const loadingContent = loading ? <Spinner /> : null
+
+	return (
+			<div className='rowmovies'>
+					<div className='rowmovies__top'>
+							<div className='rowmovies__top-title'>
+									<img src='/tranding.svg' alt='' />
+									<h1>Trending</h1>
+							</div>
+							<div className='hr' />
+							<a href="#">See more</a>
+					</div>
+					{errorContent}
+					{loadingContent}
+					<Content movies={movies} onOpen={onOpen} />
+
+					<div className='rowmovies__loadmore'>
+							<button 
+									className='btn btn-secondary' 
+									onClick={getMoreMovies}
+									disabled={newItemLoading} 
+							>
+									{newItemLoading ? 'Loading...' : 'Load More'}
+							</button>
+					</div>
+
+					<Modal open={open} onClose={onClose}>
+							<MovieInfo movieId={movieId} />
+					</Modal>
+			</div>
+	)
+}, arePropsEqual)
+
 
 export default RowMovies
 
@@ -95,4 +122,4 @@ const Content = ({movies, onOpen}) => {
 			))}
 		</div>
 	)
-}
+} 

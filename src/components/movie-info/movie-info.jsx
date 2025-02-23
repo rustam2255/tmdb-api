@@ -1,45 +1,41 @@
-import React from 'react'
+import 	{ useEffect, useState } from 'react'
 import MovieService from '../../services/movie-service'
 import Error from '../error/error'
 import Spinner from '../spinner/spinner'
 import "./movie-info.scss"
 
-class MovieInfo extends React.Component {
-	state = {
-		movie: null,
-		loading: false,
-		error: false
-	}
+const MovieInfo = ({movieId}) => {
+	const [movie, setMovie] = useState(null)
+	const [loading, setLoading] = useState(true)
+	const [error, setError] = useState(false)
+	
+	
 
-	movieService = new MovieService()
+	const movieService = new MovieService()
+	
+	useEffect(() => {
+		updateMovie()
+	},[movieId])
 
-	componentDidMount() {
-		this.updateMovie()
-	}
 
-	componentDidUpdate(prevProps) {
-		if(this.props.movieId !== prevProps.movieId) {
-			this.updateMovie()
-		}
-	}
 
-	updateMovie = () => {
-		const {movieId} = this.props
+	const updateMovie = () => {
+		
 		if(!movieId) {
 			return
 		}
 
-		this.setState({loading: true})
+		setLoading(true)
 
-		this.movieService
+		movieService
 			.getDetailedMovie(movieId)
-			.then(res => this.setState({movie: res}))
-			.catch(() => this.setState({error: true}))
-			.finally(() => this.setState({loading: false}))
+			.then(res => setMovie(res))
+			.catch(() => setError(true))
+			.finally(() => setLoading(false))
 	}
 
-	render() {
-		const {movie, loading, error} = this.state
+	
+		
 
 		const initialContent = movie || loading || error ? null : <Spinner />
 		const errorContent = error ? <Error /> : null
@@ -54,7 +50,7 @@ class MovieInfo extends React.Component {
 				{content}
 			</div>
 		)
-	}
+	
 }
 
 export default MovieInfo
